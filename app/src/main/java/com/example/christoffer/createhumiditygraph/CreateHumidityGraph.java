@@ -1,12 +1,29 @@
 package com.example.christoffer.createhumiditygraph;
 
 import android.annotation.SuppressLint;
+import android.os.AsyncTask;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.MotionEvent;
 import android.view.View;
+
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -159,5 +176,58 @@ public class CreateHumidityGraph extends AppCompatActivity {
     private void delayedHide(int delayMillis) {
         mHideHandler.removeCallbacks(mHideRunnable);
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
+    }
+
+    public void initGraph(View view) {
+        new DownloadFiles().execute("");
+    }
+
+    public void updateGraph(LineGraphSeries<DataPoint> series) {
+        GraphView graph = (GraphView) findViewById(R.id.graph);
+        graph.addSeries(series);
+    }
+
+
+    private class DownloadFiles extends AsyncTask<String, Void, LineGraphSeries<DataPoint>> {
+        protected LineGraphSeries<DataPoint> doInBackground(String... strings) {
+            LineGraphSeries<DataPoint> series = new LineGraphSeries<DataPoint>();
+
+            try {
+                URL url = new URL("http://192.168.1.67/report.txt");
+
+                HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+
+                try {
+                    InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+
+                    BufferedReader r = new BufferedReader(new InputStreamReader(in));
+                    StringBuilder total = new StringBuilder();
+                    String line;
+
+
+                    List<DataPoint> dataPoints = new ArrayList<DataPoint>();
+                    int i = 0;
+                    while ((line = r.readLine()) != null) {
+                        String[] lineSplit = line.split(";");
+
+                        double value = Double.parseDouble(lineSplit[1]);
+                        DataPoint dp = new DataPoint(i++, value);
+                        dataPoints.add(dp);
+                    }
+
+                    series = new LineGraphSeries<DataPoint>(dataPoints.toArray(new DataPoint[0]));
+                } finally {
+                    urlConnection.disconnect();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return series;
+        }
+
+        protected void onPostExecute(LineGraphSeries<DataPoint> series) {
+            updateGraph(series);
+        }
     }
 }
